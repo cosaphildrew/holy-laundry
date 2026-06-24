@@ -19,7 +19,6 @@ import database as db
 from collections import defaultdict
 
 GARMENTS = ["Shirts", "Pants", "Dresses", "Bedding/Sheets", "Towels", "Jackets", "Delicates", "Other"]
-# Services are now loaded from the database - see init section below
 STAGES = ["Dropped Off", "Washing", "Ready", "Picked Up"]
 
 TEAL = "#1F7A78"
@@ -108,15 +107,15 @@ def main(page: ft.Page):
         "inventory": inventory,
         "tab": 0,
         "new_order": {
+            "step": 1,  # 1, 2, or 3
             "mode": "existing",
             "client_id": None,
             "new_name": "",
             "new_phone": "",
-            "service_id": services[0]["id"] if services else None,
-            "items": [{"type": GARMENTS[0], "qty": 1}],
+            "order_type": "Regular",  # Regular or Rush
+            "selected_services": {},  # {service_id: {"kilos": 0}}
             "drop_off_date": today_str(),
             "due_date": "",
-            "price": "",
             "notes": "",
         },
     }
@@ -361,14 +360,27 @@ def main(page: ft.Page):
             row.append(trailing)
         return ft.Row(row, alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
-    # ------------------------------------------------------------ new order
+    # ------------------------------------------------------------ new order - 3 step wizard
     def build_new_order():
+        d = state["new_order"]
+        step = d["step"]
+
+        if step == 1:
+            return build_new_order_step1()
+        elif step == 2:
+            return build_new_order_step2()
+        else:
+            return build_new_order_step3()
+
+    def build_new_order_step1():
+        """Step 1: Client selection + Order type (Regular/Rush) + Service selection"""
         d = state["new_order"]
 
         def set_mode(mode):
             d["mode"] = mode
             render()
 
+        # Client selector
         seg = ft.Row(
             [
                 ft.Container(
@@ -412,129 +424,346 @@ def main(page: ft.Page):
                 ft.TextField(label="Phone number", value=d["new_phone"], on_change=on_phone_change),
             ]
 
-        def on_service_select(e):
-            d["service_id"] = int(e.control.value) if e.control.value else None
+        # Order type selector
+        def set_order_type(otype):
+            d["order_type"] = otype
+            render()
 
-        service_field = ft.Dropdown(
-            label="Service type", value=str(d["service_id"]),
-            options=[ft.dropdown.Option(text=s["name"], key=str(s["id"])) for s in state["services"]],
-            on_change=on_service_select,
+        order_type_seg = ft.Row(
+            [
+                ft.Container(
+                    content=ft.Text("Regular", size=12.5, weight=ft.FontWeight.BOLD,
+                                     color="white" if d["order_type"] == "Regular" else MUTED),
+                    bgcolor=TEAL if d["order_type"] == "Regular" else BG, border_radius=9,
+                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.alignment.center, expand=True,
+                    on_click=lambda e: set_order_type("Regular"),
+                ),
+                ft.Container(
+                    content=ft.Text("Rush", size=12.5, weight=ft.FontWeight.BOLD,
+                                     color="white" if d["order_type"] == "Rush" else MUTED),
+                    bgcolor=CORAL if d["order_type"] == "Rush" else BG, border_radius=9,
+                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.alignment.center, expand=True,
+                    on_click=lambda e: set_order_type("Rush"),
+                ),
+            ],
+            spacing=4,
         )
 
-        # ---- item rows ----
-        def on_item_type_select(e, idx):
-            d["items"][idx]["type"] = e.control.value
-
-        def on_item_qty_change(e, idx):
-            d["items"][idx]["qty"] = e.control.value
-
-        def remove_item(e, idx):
-            d["items"].pop(idx)
+        # Service selector (checkboxes)
+        def on_service_toggle(service_id):
+            if service_id in d["selected_services"]:
+                del d["selected_services"][service_id]
+            else:
+                d["selected_services"][service_id] = {"kilos": 0}
             render()
 
-        def add_item(e):
-            d["items"].append({"type": GARMENTS[0], "qty": 1})
-            render()
-
-        item_rows = []
-        for idx, it in enumerate(d["items"]):
-            row_controls = [
-                ft.Dropdown(
-                    value=it["type"], expand=2,
-                    options=[ft.dropdown.Option(text=g, key=g) for g in GARMENTS],
-                    on_change=lambda e, i=idx: on_item_type_select(e, i),
-                ),
-                ft.TextField(value=str(it["qty"]), expand=1, keyboard_type=ft.KeyboardType.NUMBER,
-                             on_change=lambda e, i=idx: on_item_qty_change(e, i)),
-            ]
-            if len(d["items"]) > 1:
-                row_controls.append(
-                    ft.IconButton(icon="close", icon_color=CORAL,
-                                  on_click=lambda e, i=idx: remove_item(e, i))
+        service_rows = []
+        for svc in state["services"]:
+            is_selected = svc["id"] in d["selected_services"]
+            service_rows.append(
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Checkbox(
+                                value=is_selected,
+                                on_change=lambda e, sid=svc["id"]: on_service_toggle(sid),
+                            ),
+                            ft.Column(
+                                [
+                                    ft.Text(svc["name"], weight=ft.FontWeight.BOLD, size=13),
+                                    ft.Text(f"₱{svc['price']:.2f} per kilo", size=11, color=MUTED),
+                                ],
+                                spacing=2, expand=True,
+                            ),
+                        ],
+                        spacing=10,
+                    ),
+                    padding=ft.Padding(0, 8, 0, 8),
                 )
-            item_rows.append(ft.Row(row_controls, spacing=8))
+            )
 
-        def on_dropoff_change(e):
-            d["drop_off_date"] = e.control.value
-
-        def on_due_change(e):
-            d["due_date"] = e.control.value
-
-        def on_price_change(e):
-            d["price"] = e.control.value
-
-        def on_notes_change(e):
-            d["notes"] = e.control.value
+        def next_step():
+            # Validate
+            if d["mode"] == "existing":
+                if not d["client_id"]:
+                    show_snack("Please select a client")
+                    return
+            else:
+                if not d["new_name"].strip():
+                    show_snack("Please enter a client name")
+                    return
+            
+            if not d["selected_services"]:
+                show_snack("Please select at least one service")
+                return
+            
+            d["step"] = 2
+            render()
 
         return [
-            section_title("New Order"),
+            section_title("New Order - Step 1 of 3"),
             ft.Text("CLIENT", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
             seg,
             *client_controls,
-            ft.Text("SERVICE TYPE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            service_field,
-            ft.Text("ITEMS", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            *item_rows,
-            ft.TextButton("+ Add another item type", on_click=add_item),
-            ft.Text("DROP-OFF DATE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            ft.TextField(value=d["drop_off_date"], hint_text="YYYY-MM-DD", on_change=on_dropoff_change),
-            ft.Text("DUE / READY DATE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            ft.TextField(value=d["due_date"], hint_text="YYYY-MM-DD", on_change=on_due_change),
-            ft.Text("PRICE (₱)", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            ft.TextField(value=d["price"], hint_text="0.00", keyboard_type=ft.KeyboardType.NUMBER,
-                         on_change=on_price_change),
-            ft.Text("NOTES", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-            ft.TextField(value=d["notes"], multiline=True, min_lines=2, max_lines=4, on_change=on_notes_change),
-            ft.ElevatedButton(
-                "Save order & update dashboard", bgcolor=TEAL, color="white", width=400,
-                on_click=lambda e: save_new_order(),
+            ft.Text("ORDER TYPE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            order_type_seg,
+            ft.Text("SELECT SERVICES", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            ft.Container(
+                content=ft.Column(service_rows or [ft.Text("No services available", color=MUTED)], spacing=0),
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=10,
+            ),
+            ft.Row(
+                [
+                    ft.TextButton("Cancel", on_click=lambda e: cancel_wizard()),
+                    ft.ElevatedButton("Next", bgcolor=TEAL, color="white", on_click=lambda e: next_step()),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
         ]
 
-    def save_new_order():
+    def build_new_order_step2():
+        """Step 2: Input kilos per selected service"""
         d = state["new_order"]
-        client_id = d["client_id"]
-        if d["mode"] == "new":
-            if not d["new_name"].strip():
-                show_snack("Enter a client name")
-                return
+
+        kilo_inputs = []
+        for service_id in d["selected_services"]:
+            svc = service_by_id(service_id)
+            if not svc:
+                continue
+
+            def on_kilo_change(e, sid):
+                try:
+                    d["selected_services"][sid]["kilos"] = float(e.control.value or 0)
+                except ValueError:
+                    d["selected_services"][sid]["kilos"] = 0
+
+            kilo_field = ft.TextField(
+                label=f"Kilos for {svc['name']}",
+                value=str(d["selected_services"][service_id].get("kilos", 0)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+                on_change=lambda e, sid=service_id: on_kilo_change(e, sid),
+            )
+            kilo_inputs.append(kilo_field)
+
+        def prev_step():
+            d["step"] = 1
+            render()
+
+        def next_step():
+            # Validate: all services must have at least some kilos
+            for service_id in d["selected_services"]:
+                if d["selected_services"][service_id]["kilos"] <= 0:
+                    show_snack(f"Please enter kilos for all selected services")
+                    return
+            d["step"] = 3
+            render()
+
+        return [
+            section_title("New Order - Step 2 of 3"),
+            ft.Text("ENTER KILOS PER SERVICE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            ft.Column(kilo_inputs, spacing=12),
+            ft.Row(
+                [
+                    ft.TextButton("Back", on_click=lambda e: prev_step()),
+                    ft.ElevatedButton("Next", bgcolor=TEAL, color="white", on_click=lambda e: next_step()),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+        ]
+
+    def build_new_order_step3():
+        """Step 3: Review itemized services with fees and save"""
+        d = state["new_order"]
+
+        # Calculate itemized fees
+        items_list = []
+        total_price = 0
+
+        for service_id in d["selected_services"]:
+            svc = service_by_id(service_id)
+            if not svc:
+                continue
+            
+            kilos = d["selected_services"][service_id]["kilos"]
+            service_price = svc["price"] * kilos
+            total_price += service_price
+            
+            items_list.append({
+                "service_id": service_id,
+                "name": svc["name"],
+                "kilos": kilos,
+                "price_per_kilo": svc["price"],
+                "total": service_price,
+            })
+
+        # Apply rush surcharge if applicable
+        rush_fee = 0
+        if d["order_type"] == "Rush":
+            rush_fee = total_price * 0.15  # 15% surcharge
+            total_price += rush_fee
+
+        # Build itemized display
+        item_rows = []
+        for item in items_list:
+            item_rows.append(
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Text(item["name"], weight=ft.FontWeight.BOLD, size=13),
+                                    ft.Text(f"₱{item['total']:.2f}", weight=ft.FontWeight.BOLD, size=13),
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            ),
+                            ft.Text(f"{item['kilos']:.2f} kg @ ₱{item['price_per_kilo']:.2f}/kg", 
+                                   size=11, color=MUTED),
+                        ],
+                        spacing=4,
+                    ),
+                    padding=ft.Padding(0, 8, 0, 8),
+                )
+            )
+
+        # Add notes field
+        def on_notes_change(e):
+            d["notes"] = e.control.value
+
+        notes_field = ft.TextField(
+            label="Notes (optional)",
+            value=d["notes"],
+            multiline=True,
+            min_lines=2,
+            max_lines=3,
+            on_change=on_notes_change,
+        )
+
+        def prev_step():
+            d["step"] = 2
+            render()
+
+        def save_order():
+            # Get or create client
+            client_id = d["client_id"]
+            if d["mode"] == "new":
+                if not d["new_name"].strip():
+                    show_snack("Enter a client name")
+                    return
+                try:
+                    c = db.add_client(d["new_name"].strip(), d["new_phone"].strip())
+                    client_id = c["id"]
+                except Exception as err:
+                    show_snack(f"Error adding client: {str(err)}")
+                    return
+
+            # Build items array for database
+            db_items = []
+            for item in items_list:
+                db_items.append({
+                    "type": item["name"],
+                    "qty": item["kilos"],
+                })
+
+            # Save order - use first selected service as the service_id
+            first_service_id = list(d["selected_services"].keys())[0] if d["selected_services"] else None
+            
             try:
-                c = db.add_client(d["new_name"].strip(), d["new_phone"].strip())
-                client_id = c["id"]
+                db.add_order(
+                    client_id,
+                    first_service_id,
+                    db_items,
+                    d["drop_off_date"],
+                    d["due_date"],
+                    str(total_price),
+                    f"[{d['order_type']}] {d['notes']}" if d["notes"] else f"[{d['order_type']}]",
+                )
+                
+                # Reset wizard
+                d["step"] = 1
+                d["mode"] = "existing"
+                d["client_id"] = None
+                d["new_name"] = ""
+                d["new_phone"] = ""
+                d["order_type"] = "Regular"
+                d["selected_services"] = {}
+                d["drop_off_date"] = today_str()
+                d["due_date"] = ""
+                d["notes"] = ""
+                
+                refresh_data()
+                state["tab"] = 0
+                nav_bar.selected_index = 0
+                render()
+                show_snack("Order saved successfully!")
             except Exception as err:
-                show_snack(f"Error adding client: {str(err)}")
-                print(f"Add client error: {err}")
+                show_snack(f"Error saving order: {str(err)}")
+                print(f"Add order error: {err}")
                 import traceback
                 traceback.print_exc()
-                return
-        if not client_id:
-            show_snack("Select or add a client")
-            return
-        if not d["service_id"]:
-            show_snack("Select a service type")
-            return
-        items = [{"type": i["type"], "qty": float(i["qty"] or 0)} for i in d["items"] if float(i["qty"] or 0) > 0]
-        if not items:
-            show_snack("Add at least one item")
-            return
-        try:
-            db.add_order(client_id, d["service_id"], items, d["drop_off_date"], d["due_date"], d["price"], d["notes"])
-            state["new_order"] = {
-                "mode": "existing", "client_id": None, "new_name": "", "new_phone": "",
-                "service_id": state["services"][0]["id"] if state["services"] else None,
-                "items": [{"type": GARMENTS[0], "qty": 1}],
-                "drop_off_date": today_str(), "due_date": "", "price": "", "notes": "",
-            }
-            refresh_data()
-            state["tab"] = 0
-            nav_bar.selected_index = 0
-            render()
-            show_snack("Order saved")
-        except Exception as err:
-            show_snack(f"Error saving order: {str(err)}")
-            print(f"Add order error: {err}")
-            import traceback
-            traceback.print_exc()
+
+        return [
+            section_title("New Order - Step 3 of 3"),
+            ft.Text("ORDER SUMMARY", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            ft.Container(
+                content=ft.Column(
+                    item_rows + [
+                        ft.Divider(height=1),
+                        ft.Row(
+                            [
+                                ft.Text("Subtotal", size=12, color=MUTED),
+                                ft.Text(f"₱{sum(i['total'] for i in items_list):.2f}", 
+                                       size=12, weight=ft.FontWeight.BOLD),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                    ] + (
+                        [
+                            ft.Row(
+                                [
+                                    ft.Text("Rush Surcharge (15%)", size=12, color=MUTED),
+                                    ft.Text(f"₱{rush_fee:.2f}", size=12, weight=ft.FontWeight.BOLD, color=CORAL),
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            ),
+                        ] if rush_fee > 0 else []
+                    ) + [
+                        ft.Divider(height=1),
+                        ft.Row(
+                            [
+                                ft.Text("TOTAL", size=14, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"₱{total_price:.2f}", size=18, weight=ft.FontWeight.BOLD, color=TEAL),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                    ],
+                    spacing=8,
+                ),
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=14,
+            ),
+            ft.Text("NOTES", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            notes_field,
+            ft.Row(
+                [
+                    ft.TextButton("Back", on_click=lambda e: prev_step()),
+                    ft.ElevatedButton("Save Order", bgcolor=TEAL, color="white", on_click=lambda e: save_order()),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+        ]
+
+    def cancel_wizard():
+        d = state["new_order"]
+        d["step"] = 1
+        d["mode"] = "existing"
+        d["client_id"] = None
+        d["new_name"] = ""
+        d["new_phone"] = ""
+        d["order_type"] = "Regular"
+        d["selected_services"] = {}
+        d["notes"] = ""
+        state["tab"] = 0
+        nav_bar.selected_index = 0
+        render()
 
     # -------------------------------------------------------------- clients
     def open_add_client_dialog():
