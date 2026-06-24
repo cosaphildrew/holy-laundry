@@ -9,8 +9,8 @@ import json
 from datetime import datetime
 from contextlib import contextmanager
 
-import psycopg2
-import psycopg2.extras
+import psycopg
+import psycopg.extras
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
