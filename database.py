@@ -51,7 +51,7 @@ def get_conn():
 
 
 def init_db():
-    """Initialize database tables if they don't exist."""
+    """Initialize database tables and migrate schema if needed."""
     print("[DB] Initializing database...")
     try:
         with get_conn() as conn:
@@ -73,7 +73,7 @@ def init_db():
                 print("[DB] Added 'unit' column to services table")
             except Exception as e:
                 # Column probably already exists
-                print(f"[DB] Unit column migration: {str(e)[:50]}")
+                print(f"[DB] Unit column exists or migration info: {str(e)[:50]}")
 
             c.execute("""
                 CREATE TABLE IF NOT EXISTS clients (
@@ -111,28 +111,32 @@ def init_db():
                 )
             """)
 
-            # Insert or update default services
-            print("[DB] Setting up default services...")
-            default_services = [
-                ("Light", "kg", 50.0),
-                ("Heavy", "kg", 60.0),
-                ("Spin and Dry", "kg", 40.0),
-                ("Extra Dry", "load", 45.0),
-                ("Delicate (Hand Wash)", "item", 75.0),
-                ("Shoes (Handwashed-Shoe Dryer)", "pair", 100.0),
-                ("Power Wash", "load", 50.0),
-                ("Fabric Conditioner", "sachet", 15.0),
-                ("Bleach Color Safe", "sachet", 15.0),
-            ]
-            
-            for service_name, unit, price in default_services:
-                # Use UPSERT to update if exists or insert if new
-                c.execute("""
-                    INSERT INTO services (name, unit, price) VALUES (%s, %s, %s)
-                    ON CONFLICT (name) DO UPDATE SET unit = %s, price = %s
-                """, (service_name, unit, price, unit, price))
-        
+            # Map service names to units (for existing services or new ones)
+            service_unit_map = {
+                "Light": "kg",
+                "Heavy": "kg",
+                "Spin and Dry": "kg",
+                "Extra Dry": "load",
+                "Delicate (Hand Wash)": "item",
+                "Delicate": "item",
+                "Shoes (Handwashed-Shoe Dryer)": "pair",
+                "Shoes": "pair",
+                "Power Wash": "load",
+                "Fabric Conditioner": "sachet",
+                "Bleach Color Safe": "sachet",
+                "Bleach": "sachet",
+            }
+
+            # Update units for existing services, only if they have default unit
+            print("[DB] Updating service units...")
+            for service_name, unit in service_unit_map.items():
+                c.execute(
+                    "UPDATE services SET unit = %s WHERE name = %s AND unit = 'kg'",
+                    (unit, service_name)
+                )
+
         print("[DB] Database initialized successfully")
+        print("[DB] Using prices from your Neon database services table")
     except Exception as e:
         print(f"[DB] Init error: {e}")
         raise
