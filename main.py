@@ -68,6 +68,12 @@ def main(page: ft.Page):
     page.fonts = {}
 
     # ---------------------------------------------------------------- state
+    # Initialize database tables on first load
+    try:
+        db.init_db()
+    except Exception as e:
+        print(f"Database already initialized or error: {e}")
+    
     # Initialize state with fallback for database errors
     try:
         clients = db.get_clients()
