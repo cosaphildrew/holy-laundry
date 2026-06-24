@@ -28,7 +28,7 @@ if "sslmode" not in DATABASE_URL:
 
 @contextmanager
 def get_conn():
-    conn = psycopg.connect(DATABASE_URL, sslmode="require")
+    conn = psycopg.connect(DATABASE_URL)
     try:
         yield conn
         conn.commit()
@@ -196,4 +196,4 @@ def set_inventory_qty(item_id, qty):
 
 
 # Initialize on import
-init_db()
+# init_db()
