@@ -69,28 +69,28 @@ def main(page: ft.Page):
 
     # ---------------------------------------------------------------- state
     # Initialize state with fallback for database errors
-try:
-    clients = db.get_clients()
-except Exception as e:
-    clients = []
-    print(f"Failed to load clients: {e}")
+    try:
+        clients = db.get_clients()
+    except Exception as e:
+        clients = []
+        print(f"Failed to load clients: {e}")
 
-try:
-    orders = db.get_orders()
-except Exception as e:
-    orders = []
-    print(f"Failed to load orders: {e}")
+    try:
+        orders = db.get_orders()
+    except Exception as e:
+        orders = []
+        print(f"Failed to load orders: {e}")
 
-try:
-    inventory = db.get_inventory()
-except Exception as e:
-    inventory = []
-    print(f"Failed to load inventory: {e}")
+    try:
+        inventory = db.get_inventory()
+    except Exception as e:
+        inventory = []
+        print(f"Failed to load inventory: {e}")
 
-state = {
-    "clients": clients,
-    "orders": orders,
-    "inventory": inventory,
+    state = {
+        "clients": clients,
+        "orders": orders,
+        "inventory": inventory,
         "tab": 0,
         "new_order": {
             "mode": "existing",
@@ -114,20 +114,20 @@ state = {
         return next((c for c in state["clients"] if c["id"] == cid), None)
 
     def refresh_data():
-    try:
-        state["clients"] = db.get_clients()
-    except Exception as e:
-        print(f"Failed to refresh clients: {e}")
-    
-    try:
-        state["orders"] = db.get_orders()
-    except Exception as e:
-        print(f"Failed to refresh orders: {e}")
-    
-    try:
-        state["inventory"] = db.get_inventory()
-    except Exception as e:
-        print(f"Failed to refresh inventory: {e}")
+        try:
+            state["clients"] = db.get_clients()
+        except Exception as e:
+            print(f"Failed to refresh clients: {e}")
+        
+        try:
+            state["orders"] = db.get_orders()
+        except Exception as e:
+            print(f"Failed to refresh orders: {e}")
+        
+        try:
+            state["inventory"] = db.get_inventory()
+        except Exception as e:
+            print(f"Failed to refresh inventory: {e}")
 
     def show_snack(msg):
         try:
