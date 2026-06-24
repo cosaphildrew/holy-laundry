@@ -57,6 +57,7 @@ def init_db():
         with get_conn() as conn:
             c = conn.cursor()
 
+            # Create services table with new schema
             c.execute("""
                 CREATE TABLE IF NOT EXISTS services (
                     id SERIAL PRIMARY KEY,
@@ -65,6 +66,14 @@ def init_db():
                     price REAL NOT NULL
                 )
             """)
+
+            # Try to add unit column if it doesn't exist (migration)
+            try:
+                c.execute("ALTER TABLE services ADD COLUMN unit TEXT NOT NULL DEFAULT 'kg'")
+                print("[DB] Added 'unit' column to services table")
+            except Exception as e:
+                # Column probably already exists
+                print(f"[DB] Unit column migration: {str(e)[:50]}")
 
             c.execute("""
                 CREATE TABLE IF NOT EXISTS clients (
@@ -102,8 +111,8 @@ def init_db():
                 )
             """)
 
-            # Insert default services if they don't exist
-            print("[DB] Inserting default services...")
+            # Insert or update default services
+            print("[DB] Setting up default services...")
             default_services = [
                 ("Light", "kg", 50.0),
                 ("Heavy", "kg", 60.0),
@@ -117,10 +126,11 @@ def init_db():
             ]
             
             for service_name, unit, price in default_services:
-                c.execute(
-                    "INSERT INTO services (name, unit, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
-                    (service_name, unit, price)
-                )
+                # Use UPSERT to update if exists or insert if new
+                c.execute("""
+                    INSERT INTO services (name, unit, price) VALUES (%s, %s, %s)
+                    ON CONFLICT (name) DO UPDATE SET unit = %s, price = %s
+                """, (service_name, unit, price, unit, price))
         
         print("[DB] Database initialized successfully")
     except Exception as e:
