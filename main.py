@@ -377,7 +377,7 @@ def main(page: ft.Page):
             client_field = ft.Dropdown(
                 label="Select a client",
                 value=d["client_id"],
-                options=[ft.DropdownOption(key=c["id"], text=c["name"]) for c in state["clients"]],
+                options=[ft.dropdown.Option(text=c["name"], key=c["id"]) for c in state["clients"]],
                 on_change=on_client_select,
             )
             client_controls = [client_field]
@@ -398,7 +398,7 @@ def main(page: ft.Page):
 
         service_field = ft.Dropdown(
             label="Service type", value=d["service"],
-            options=[ft.DropdownOption(key=s, text=s) for s in SERVICES],
+            options=[ft.dropdown.Option(text=s, key=s) for s in SERVICES],
             on_change=on_service_select,
         )
 
@@ -422,7 +422,7 @@ def main(page: ft.Page):
             row_controls = [
                 ft.Dropdown(
                     value=it["type"], expand=2,
-                    options=[ft.DropdownOption(key=g, text=g) for g in GARMENTS],
+                    options=[ft.dropdown.Option(text=g, key=g) for g in GARMENTS],
                     on_change=lambda e, i=idx: on_item_type_select(e, i),
                 ),
                 ft.TextField(value=str(it["qty"]), expand=1, keyboard_type=ft.KeyboardType.NUMBER,
