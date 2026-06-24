@@ -105,12 +105,12 @@ def init_db():
             # Insert default services if they don't exist
             print("[DB] Inserting default services...")
             default_services = [
-                ("Light", 0, 0.0),
-                ("Heavy", 0, 0.0),
-                ("Spin and Dry", 0, 0.0),
-                ("Extra Dry", 0, 0.0),
-                ("Delicate (Hand Wash)", 0, 0.0),
-                ("Shoes (Handwashed-Shoe Dryer)", 0, 0.0),
+                ("Light", 0, 50.0),
+                ("Heavy", 0, 60.0),
+                ("Spin and Dry", 0, 40.0),
+                ("Extra Dry", 0, 45.0),
+                ("Delicate (Hand Wash)", 0, 75.0),
+                ("Shoes (Handwashed-Shoe Dryer)", 0, 100.0),
             ]
             
             for service_name, min_weight, price in default_services:
