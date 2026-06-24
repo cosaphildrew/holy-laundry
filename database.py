@@ -28,7 +28,7 @@ if "sslmode" not in DATABASE_URL:
 
 @contextmanager
 def get_conn():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
     try:
         yield conn
         conn.commit()
