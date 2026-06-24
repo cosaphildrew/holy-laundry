@@ -61,7 +61,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS services (
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE,
-                    min_weight INT,
+                    unit TEXT NOT NULL DEFAULT 'kg',
                     price REAL NOT NULL
                 )
             """)
@@ -105,18 +105,21 @@ def init_db():
             # Insert default services if they don't exist
             print("[DB] Inserting default services...")
             default_services = [
-                ("Light", 0, 50.0),
-                ("Heavy", 0, 60.0),
-                ("Spin and Dry", 0, 40.0),
-                ("Extra Dry", 0, 45.0),
-                ("Delicate (Hand Wash)", 0, 75.0),
-                ("Shoes (Handwashed-Shoe Dryer)", 0, 100.0),
+                ("Light", "kg", 50.0),
+                ("Heavy", "kg", 60.0),
+                ("Spin and Dry", "kg", 40.0),
+                ("Extra Dry", "load", 45.0),
+                ("Delicate (Hand Wash)", "item", 75.0),
+                ("Shoes (Handwashed-Shoe Dryer)", "pair", 100.0),
+                ("Power Wash", "load", 50.0),
+                ("Fabric Conditioner", "sachet", 15.0),
+                ("Bleach Color Safe", "sachet", 15.0),
             ]
             
-            for service_name, min_weight, price in default_services:
+            for service_name, unit, price in default_services:
                 c.execute(
-                    "INSERT INTO services (name, min_weight, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
-                    (service_name, min_weight, price)
+                    "INSERT INTO services (name, unit, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                    (service_name, unit, price)
                 )
         
         print("[DB] Database initialized successfully")
@@ -135,24 +138,24 @@ def get_services():
     """Get all service types."""
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("SELECT id, name, min_weight, price FROM services ORDER BY id")
+        c.execute("SELECT id, name, unit, price FROM services ORDER BY id")
         rows = c.fetchall()
     return [
-        {"id": row[0], "name": row[1], "min_weight": row[2], "price": row[3]}
+        {"id": row[0], "name": row[1], "unit": row[2], "price": row[3]}
         for row in rows
     ]
 
 
-def add_service(name, min_weight, price):
+def add_service(name, unit, price):
     """Add a new service type."""
     with get_conn() as conn:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO services (name, min_weight, price) VALUES (%s, %s, %s) RETURNING id, name, min_weight, price",
-            (name, min_weight, price),
+            "INSERT INTO services (name, unit, price) VALUES (%s, %s, %s) RETURNING id, name, unit, price",
+            (name, unit, price),
         )
         row = c.fetchone()
-    return {"id": row[0], "name": row[1], "min_weight": row[2], "price": row[3]}
+    return {"id": row[0], "name": row[1], "unit": row[2], "price": row[3]}
 
 
 def update_service_price(service_id, price):
