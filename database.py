@@ -58,6 +58,15 @@ def init_db():
             c = conn.cursor()
 
             c.execute("""
+                CREATE TABLE IF NOT EXISTS services (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    min_weight INT,
+                    price REAL NOT NULL
+                )
+            """)
+
+            c.execute("""
                 CREATE TABLE IF NOT EXISTS clients (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -71,7 +80,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS orders (
                     id TEXT PRIMARY KEY,
                     client_id TEXT NOT NULL REFERENCES clients(id),
-                    service TEXT,
+                    service_id INT REFERENCES services(id),
                     items TEXT,
                     drop_off_date TEXT,
                     due_date TEXT,
@@ -92,6 +101,24 @@ def init_db():
                     created_at BIGINT
                 )
             """)
+
+            # Insert default services if they don't exist
+            print("[DB] Inserting default services...")
+            default_services = [
+                ("Light", 0, 0.0),
+                ("Heavy", 0, 0.0),
+                ("Spin and Dry", 0, 0.0),
+                ("Extra Dry", 0, 0.0),
+                ("Delicate (Hand Wash)", 0, 0.0),
+                ("Shoes (Handwashed-Shoe Dryer)", 0, 0.0),
+            ]
+            
+            for service_name, min_weight, price in default_services:
+                c.execute(
+                    "INSERT INTO services (name, min_weight, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                    (service_name, min_weight, price)
+                )
+        
         print("[DB] Database initialized successfully")
     except Exception as e:
         print(f"[DB] Init error: {e}")
@@ -103,6 +130,39 @@ def _gen_id():
     return str(int(datetime.now().timestamp() * 1000))
 
 
+# ---------------------------------------------------------------- SERVICES
+def get_services():
+    """Get all service types."""
+    with get_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, name, min_weight, price FROM services ORDER BY id")
+        rows = c.fetchall()
+    return [
+        {"id": row[0], "name": row[1], "min_weight": row[2], "price": row[3]}
+        for row in rows
+    ]
+
+
+def add_service(name, min_weight, price):
+    """Add a new service type."""
+    with get_conn() as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO services (name, min_weight, price) VALUES (%s, %s, %s) RETURNING id, name, min_weight, price",
+            (name, min_weight, price),
+        )
+        row = c.fetchone()
+    return {"id": row[0], "name": row[1], "min_weight": row[2], "price": row[3]}
+
+
+def update_service_price(service_id, price):
+    """Update service price."""
+    with get_conn() as conn:
+        c = conn.cursor()
+        c.execute("UPDATE services SET price = %s WHERE id = %s", (price, service_id))
+
+
+# ---------------------------------------------------------------- CLIENTS
 def add_client(name, phone="", address=""):
     """Add a new client."""
     client_id = _gen_id()
@@ -128,7 +188,8 @@ def get_clients():
     ]
 
 
-def add_order(client_id, service, items, drop_off_date, due_date, price, notes):
+# ---------------------------------------------------------------- ORDERS
+def add_order(client_id, service_id, items, drop_off_date, due_date, price, notes):
     """Add a new order."""
     order_id = _gen_id()
     now = int(datetime.now().timestamp())
@@ -136,13 +197,13 @@ def add_order(client_id, service, items, drop_off_date, due_date, price, notes):
         c = conn.cursor()
         c.execute(
             """INSERT INTO orders
-               (id, client_id, service, items, drop_off_date, due_date, price, notes, status, created_at)
+               (id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, created_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (order_id, client_id, service, json.dumps(items), drop_off_date, due_date,
+            (order_id, client_id, service_id, json.dumps(items), drop_off_date, due_date,
              price, notes, "Dropped Off", now),
         )
     return {
-        "id": order_id, "client_id": client_id, "service": service, "items": items,
+        "id": order_id, "client_id": client_id, "service_id": service_id, "items": items,
         "drop_off_date": drop_off_date, "due_date": due_date, "price": price, "notes": notes,
         "status": "Dropped Off", "created_at": now,
     }
@@ -152,7 +213,7 @@ def get_orders():
     """Get all orders."""
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("""SELECT id, client_id, service, items, drop_off_date, due_date, price, notes, status, created_at
+        c.execute("""SELECT id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, created_at
                      FROM orders ORDER BY created_at DESC""")
         rows = c.fetchall()
     orders = []
@@ -160,7 +221,7 @@ def get_orders():
         orders.append({
             "id": row[0],
             "client_id": row[1],
-            "service": row[2],
+            "service_id": row[2],
             "items": json.loads(row[3]) if isinstance(row[3], str) else row[3],
             "drop_off_date": row[4],
             "due_date": row[5],
@@ -179,6 +240,7 @@ def update_order_status(order_id, status):
         c.execute("UPDATE orders SET status = %s WHERE id = %s", (status, order_id))
 
 
+# ---------------------------------------------------------------- INVENTORY
 def add_inventory_item(name, qty, unit, reorder):
     """Add inventory item."""
     item_id = _gen_id()
