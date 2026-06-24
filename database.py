@@ -10,7 +10,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 import psycopg
-import psycopg.extras
+
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
