@@ -19,7 +19,7 @@ import database as db
 from collections import defaultdict
 
 GARMENTS = ["Shirts", "Pants", "Dresses", "Bedding/Sheets", "Towels", "Jackets", "Delicates", "Other"]
-SERVICES = ["Wash & Fold", "Dry Clean", "Wash & Iron", "Ironing Only", "Express (24h)"]
+# Services are now loaded from the database - see init section below
 STAGES = ["Dropped Off", "Washing", "Ready", "Picked Up"]
 
 TEAL = "#1F7A78"
@@ -74,6 +74,14 @@ def main(page: ft.Page):
     except Exception as e:
         print(f"Database already initialized or error: {e}")
     
+    # Load services from database
+    try:
+        services = db.get_services()
+        print(f"Loaded {len(services)} service types")
+    except Exception as e:
+        services = []
+        print(f"Failed to load services: {e}")
+    
     # Initialize state with fallback for database errors
     try:
         clients = db.get_clients()
@@ -94,6 +102,7 @@ def main(page: ft.Page):
         print(f"Failed to load inventory: {e}")
 
     state = {
+        "services": services,
         "clients": clients,
         "orders": orders,
         "inventory": inventory,
@@ -103,7 +112,7 @@ def main(page: ft.Page):
             "client_id": None,
             "new_name": "",
             "new_phone": "",
-            "service": SERVICES[0],
+            "service_id": services[0]["id"] if services else None,
             "items": [{"type": GARMENTS[0], "qty": 1}],
             "drop_off_date": today_str(),
             "due_date": "",
@@ -128,7 +137,15 @@ def main(page: ft.Page):
     def client_by_id(cid):
         return next((c for c in state["clients"] if c["id"] == cid), None)
 
+    def service_by_id(sid):
+        return next((s for s in state["services"] if s["id"] == sid), None)
+
     def refresh_data():
+        try:
+            state["services"] = db.get_services()
+        except Exception as e:
+            print(f"Failed to refresh services: {e}")
+        
         try:
             state["clients"] = db.get_clients()
         except Exception as e:
@@ -197,6 +214,7 @@ def main(page: ft.Page):
     # ------------------------------------------------------------- dialogs
     def open_order_detail(order):
         client = client_by_id(order["client_id"])
+        service = service_by_id(order["service_id"])
         status_buttons = []
         for s in STAGES:
             is_on = s == order["status"]
@@ -218,7 +236,7 @@ def main(page: ft.Page):
             title=ft.Text("Order detail"),
             content=ft.Column(
                 [
-                    ft.Text(f"{client['name'] if client else 'Unknown'} - {order['service']}", color=MUTED, size=12),
+                    ft.Text(f"{client['name'] if client else 'Unknown'} - {service['name'] if service else 'Unknown'}", color=MUTED, size=12),
                     ft.Divider(),
                     ft.Text("STATUS", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
                     ft.Row(status_buttons, spacing=6),
@@ -255,6 +273,7 @@ def main(page: ft.Page):
     # ------------------------------------------------------------ dashboard
     def order_card(order):
         client = client_by_id(order["client_id"])
+        service = service_by_id(order["service_id"])
         fg, bgc = STATUS_COLORS.get(order["status"], STATUS_COLORS["Dropped Off"])
         total_items = sum(i["qty"] for i in order["items"])
         chips = ft.Row(
@@ -287,7 +306,7 @@ def main(page: ft.Page):
                                     ft.Text(client["name"] if client else "Unknown client",
                                              weight=ft.FontWeight.BOLD, size=14.5),
                                     ft.Text(
-                                        f"{total_items:g} item(s) - Dropped {fmt_date(order['drop_off_date'])}"
+                                        f"{total_items:g} item(s) - {service['name'] if service else 'Unknown'} - Dropped {fmt_date(order['drop_off_date'])}"
                                         + (f" - Due {fmt_date(order['due_date'])}" if order.get("due_date") else ""),
                                         size=12, color=MUTED,
                                     ),
@@ -394,11 +413,11 @@ def main(page: ft.Page):
             ]
 
         def on_service_select(e):
-            d["service"] = e.control.value
+            d["service_id"] = int(e.control.value) if e.control.value else None
 
         service_field = ft.Dropdown(
-            label="Service type", value=d["service"],
-            options=[ft.dropdown.Option(text=s, key=s) for s in SERVICES],
+            label="Service type", value=str(d["service_id"]),
+            options=[ft.dropdown.Option(text=s["name"], key=str(s["id"])) for s in state["services"]],
             on_change=on_service_select,
         )
 
@@ -491,15 +510,19 @@ def main(page: ft.Page):
         if not client_id:
             show_snack("Select or add a client")
             return
+        if not d["service_id"]:
+            show_snack("Select a service type")
+            return
         items = [{"type": i["type"], "qty": float(i["qty"] or 0)} for i in d["items"] if float(i["qty"] or 0) > 0]
         if not items:
             show_snack("Add at least one item")
             return
         try:
-            db.add_order(client_id, d["service"], items, d["drop_off_date"], d["due_date"], d["price"], d["notes"])
+            db.add_order(client_id, d["service_id"], items, d["drop_off_date"], d["due_date"], d["price"], d["notes"])
             state["new_order"] = {
                 "mode": "existing", "client_id": None, "new_name": "", "new_phone": "",
-                "service": SERVICES[0], "items": [{"type": GARMENTS[0], "qty": 1}],
+                "service_id": state["services"][0]["id"] if state["services"] else None,
+                "items": [{"type": GARMENTS[0], "qty": 1}],
                 "drop_off_date": today_str(), "due_date": "", "price": "", "notes": "",
             }
             refresh_data()
