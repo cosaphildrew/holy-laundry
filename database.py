@@ -25,15 +25,26 @@ if not DATABASE_URL:
 if "sslmode" not in DATABASE_URL:
     DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
 
+print(f"[DB] Connecting to: {DATABASE_URL[:50]}...")  # Log first 50 chars (hide password)
+
 
 @contextmanager
 def get_conn():
-    conn = psycopg.connect(DATABASE_URL)
+    try:
+        conn = psycopg.connect(DATABASE_URL)
+    except psycopg.OperationalError as e:
+        print(f"[DB] Connection failed: {e}")
+        raise RuntimeError(f"Database connection failed: {e}") from e
+    except Exception as e:
+        print(f"[DB] Connection error: {e}")
+        raise RuntimeError(f"Database error: {e}") from e
+    
     try:
         yield conn
         conn.commit()
-    except Exception:
+    except Exception as e:
         conn.rollback()
+        print(f"[DB] Query failed: {e}")
         raise
     finally:
         conn.close()
@@ -41,44 +52,50 @@ def get_conn():
 
 def init_db():
     """Initialize database tables if they don't exist."""
-    with get_conn() as conn:
-        c = conn.cursor()
+    print("[DB] Initializing database...")
+    try:
+        with get_conn() as conn:
+            c = conn.cursor()
 
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS clients (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                phone TEXT,
-                address TEXT,
-                created_at BIGINT
-            )
-        """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    phone TEXT,
+                    address TEXT,
+                    created_at BIGINT
+                )
+            """)
 
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS orders (
-                id TEXT PRIMARY KEY,
-                client_id TEXT NOT NULL REFERENCES clients(id),
-                service TEXT,
-                items TEXT,
-                drop_off_date TEXT,
-                due_date TEXT,
-                price REAL,
-                notes TEXT,
-                status TEXT,
-                created_at BIGINT
-            )
-        """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id TEXT PRIMARY KEY,
+                    client_id TEXT NOT NULL REFERENCES clients(id),
+                    service TEXT,
+                    items TEXT,
+                    drop_off_date TEXT,
+                    due_date TEXT,
+                    price REAL,
+                    notes TEXT,
+                    status TEXT,
+                    created_at BIGINT
+                )
+            """)
 
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                qty REAL,
-                unit TEXT,
-                reorder REAL,
-                created_at BIGINT
-            )
-        """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS inventory (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    qty REAL,
+                    unit TEXT,
+                    reorder REAL,
+                    created_at BIGINT
+                )
+            """)
+        print("[DB] Database initialized successfully")
+    except Exception as e:
+        print(f"[DB] Init error: {e}")
+        raise
 
 
 def _gen_id():
@@ -196,4 +213,7 @@ def set_inventory_qty(item_id, qty):
 
 
 # Initialize on import
-# init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"[DB] Failed to initialize on import: {e}")
