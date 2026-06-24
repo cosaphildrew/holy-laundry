@@ -227,13 +227,13 @@ def main(page: ft.Page):
                 spacing=8,
                 tight=True,
             ),
-            actions=[ft.TextButton("Close", on_click=lambda e: page.pop_dialog())],
+            actions=[ft.TextButton("Close", on_click=lambda e: page.close_dialog())],
         )
         page.show_dialog(dlg)
 
     def set_status_and_close(order_id, status):
         db.update_order_status(order_id, status)
-        page.pop_dialog()
+        page.close_dialog()
         refresh_data()
         render()
         show_snack(f"Order marked {status}")
@@ -505,7 +505,7 @@ def main(page: ft.Page):
                 show_snack("Enter a name")
                 return
             db.add_client(name_field.value.strip(), phone_field.value or "", address_field.value or "")
-            page.pop_dialog()
+            page.close_dialog()
             refresh_data()
             render()
             show_snack("Client added")
@@ -514,7 +514,7 @@ def main(page: ft.Page):
             title=ft.Text("Add client"),
             content=ft.Column([name_field, phone_field, address_field], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda e: page.pop_dialog()),
+                ft.TextButton("Cancel", on_click=lambda e: page.close_dialog()),
                 ft.ElevatedButton("Save", bgcolor=TEAL, color="white", on_click=save),
             ],
         )
@@ -543,7 +543,7 @@ def main(page: ft.Page):
                 ],
                 tight=True, spacing=8,
             ),
-            actions=[ft.TextButton("Close", on_click=lambda e: page.pop_dialog())],
+            actions=[ft.TextButton("Close", on_click=lambda e: page.close_dialog())],
         )
         page.show_dialog(dlg)
 
@@ -604,7 +604,7 @@ def main(page: ft.Page):
                 unit_field.value.strip() or "pcs",
                 float(reorder_field.value or 0),
             )
-            page.pop_dialog()
+            page.close_dialog()
             refresh_data()
             render()
             show_snack("Item added")
@@ -613,7 +613,7 @@ def main(page: ft.Page):
             title=ft.Text("Add inventory item"),
             content=ft.Column([name_field, qty_field, unit_field, reorder_field], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda e: page.pop_dialog()),
+                ft.TextButton("Cancel", on_click=lambda e: page.close_dialog()),
                 ft.ElevatedButton("Save", bgcolor=TEAL, color="white", on_click=save),
             ],
         )
