@@ -147,11 +147,11 @@ def main(page: ft.Page):
         selected_index=0,
         on_change=on_nav_change,
         destinations=[
-            ft.NavigationBarDestination(icon=ft.Icons.HOME_ROUNDED, label="Dashboard"),
-            ft.NavigationBarDestination(icon=ft.Icons.ADD_CIRCLE_ROUNDED, label="New Order"),
-            ft.NavigationBarDestination(icon=ft.Icons.PEOPLE_ROUNDED, label="Clients"),
-            ft.NavigationBarDestination(icon=ft.Icons.INVENTORY_2_ROUNDED, label="Inventory"),
-            ft.NavigationBarDestination(icon=ft.Icons.ANALYTICS_ROUNDED, label="Reports"),
+            ft.NavigationBarDestination(icon="home", label="Dashboard"),
+            ft.NavigationBarDestination(icon="add_circle", label="New Order"),
+            ft.NavigationBarDestination(icon="people", label="Clients"),
+            ft.NavigationBarDestination(icon="inventory_2", label="Inventory"),
+            ft.NavigationBarDestination(icon="analytics", label="Reports"),
         ],
     )
     page.navigation_bar = nav_bar
@@ -309,7 +309,7 @@ def main(page: ft.Page):
 
     def build_dashboard():
         if not state["orders"]:
-            return [empty_state(ft.Icons.LOCAL_LAUNDRY_SERVICE_ROUNDED, "No orders yet",
+            return [empty_state("local_laundry_service", "No orders yet",
                                  "Tap New Order below to log your first laundry intake.")]
         sorted_orders = sorted(state["orders"], key=lambda o: (o["status"] == "Picked Up", -o["created_at"]))
         return [section_title("Orders")] + [order_card(o) for o in sorted_orders]
@@ -418,7 +418,7 @@ def main(page: ft.Page):
             ]
             if len(d["items"]) > 1:
                 row_controls.append(
-                    ft.IconButton(icon=ft.Icons.CLOSE, icon_color=CORAL,
+                    ft.IconButton(icon="close", icon_color=CORAL,
                                   on_click=lambda e, i=idx: remove_item(e, i))
                 )
             item_rows.append(ft.Row(row_controls, spacing=8))
@@ -543,7 +543,7 @@ def main(page: ft.Page):
 
     def build_clients():
         if not state["clients"]:
-            body = [empty_state(ft.Icons.PERSON_ROUNDED, "No clients yet",
+            body = [empty_state("person", "No clients yet",
                                  "Add your first client to start logging orders.")]
         else:
             rows = []
@@ -564,7 +564,7 @@ def main(page: ft.Page):
                                     ],
                                     spacing=1, expand=True,
                                 ),
-                                ft.Icon(ft.Icons.CHEVRON_RIGHT, color=MUTED),
+                                ft.Icon("chevron_right", color=MUTED),
                             ],
                             spacing=10,
                         ),
@@ -649,10 +649,10 @@ def main(page: ft.Page):
                             ),
                             ft.Row(
                                 [
-                                    ft.IconButton(icon=ft.Icons.REMOVE, icon_size=16,
+                                    ft.IconButton(icon="remove", icon_size=16,
                                                   on_click=lambda e, iid=i["id"]: adjust_inventory(e, iid, -1)),
                                     ft.Text(f"{i['qty']:g}", weight=ft.FontWeight.BOLD, size=14),
-                                    ft.IconButton(icon=ft.Icons.ADD, icon_size=16,
+                                    ft.IconButton(icon="add", icon_size=16,
                                                   on_click=lambda e, iid=i["id"]: adjust_inventory(e, iid, 1)),
                                 ],
                                 spacing=2,
@@ -827,7 +827,7 @@ def main(page: ft.Page):
             [
                 ft.Row(
                     [
-                        ft.Icon(ft.Icons.LOCAL_LAUNDRY_SERVICE_ROUNDED, color="white", size=22),
+                        ft.Icon("local_laundry_service", color="white", size=22),
                         ft.Text("Holy Laundry", size=20, weight=ft.FontWeight.BOLD, color="white"),
                     ],
                     spacing=8,
