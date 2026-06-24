@@ -471,7 +471,7 @@ def main(page: ft.Page):
                             ft.Column(
                                 [
                                     ft.Text(svc["name"], weight=ft.FontWeight.BOLD, size=13),
-                                    ft.Text(f"₱{svc['price']:.2f} per kilo", size=11, color=MUTED),
+                                    ft.Text(f"₱{svc['price']:.2f} per {svc['unit']}", size=11, color=MUTED),
                                 ],
                                 spacing=2, expand=True,
                             ),
@@ -537,8 +537,18 @@ def main(page: ft.Page):
                 except ValueError:
                     d["selected_services"][sid]["kilos"] = 0
 
+            # Create label based on unit
+            unit_label_map = {
+                "kg": "Kilos",
+                "item": "Items",
+                "pair": "Pairs",
+                "load": "Loads",
+                "sachet": "Sachets",
+            }
+            unit_display = unit_label_map.get(svc.get("unit", "kg"), svc.get("unit", "kg"))
+
             kilo_field = ft.TextField(
-                label=f"Kilos for {svc['name']}",
+                label=f"{unit_display} for {svc['name']}",
                 value=str(d["selected_services"][service_id].get("kilos", 0)),
                 keyboard_type=ft.KeyboardType.NUMBER,
                 on_change=lambda e, sid=service_id: on_kilo_change(e, sid),
@@ -592,14 +602,15 @@ def main(page: ft.Page):
                 "service_id": service_id,
                 "name": svc["name"],
                 "kilos": kilos,
-                "price_per_kilo": svc["price"],
+                "unit": svc.get("unit", "kg"),
+                "price_per_unit": svc["price"],
                 "total": service_price,
             })
 
         # Apply rush surcharge if applicable
         rush_fee = 0
         if d["order_type"] == "Rush":
-            rush_fee = total_price * 0.15  # 15% surcharge
+            rush_fee = 100  # Fixed 100 pesos surcharge
             total_price += rush_fee
 
         # Build itemized display
@@ -616,7 +627,7 @@ def main(page: ft.Page):
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             ),
-                            ft.Text(f"{item['kilos']:.2f} kg @ ₱{item['price_per_kilo']:.2f}/kg", 
+                            ft.Text(f"{item['kilos']:.2f} {item['unit']} @ ₱{item['price_per_unit']:.2f}/{item['unit']}", 
                                    size=11, color=MUTED),
                         ],
                         spacing=4,
@@ -720,7 +731,7 @@ def main(page: ft.Page):
                         [
                             ft.Row(
                                 [
-                                    ft.Text("Rush Surcharge (15%)", size=12, color=MUTED),
+                                    ft.Text("Rush Surcharge", size=12, color=MUTED),
                                     ft.Text(f"₱{rush_fee:.2f}", size=12, weight=ft.FontWeight.BOLD, color=CORAL),
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
