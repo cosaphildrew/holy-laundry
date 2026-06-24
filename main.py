@@ -228,7 +228,7 @@ def main(page: ft.Page):
                     ft.Text(f"{fmt_date(order['drop_off_date'])}"
                             + (f" -> {fmt_date(order['due_date'])}" if order.get("due_date") else ""), size=13),
                     ft.Text("PRICE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
-                    ft.Text(f"${float(order['price']):.2f}" if order.get("price") else "Not set", size=13),
+                    ft.Text(f"₱{float(order['price']):.2f}" if order.get("price") else "Not set", size=13),
                 ],
                 spacing=8,
                 tight=True,
@@ -304,7 +304,7 @@ def main(page: ft.Page):
                     chips,
                     ft.Row(
                         [
-                            ft.Text(f"${float(order['price']):.2f}" if order.get("price") else "-",
+                            ft.Text(f"₱{float(order['price']):.2f}" if order.get("price") else "-",
                                      weight=ft.FontWeight.BOLD, size=15),
                             bottom_right,
                         ],
@@ -461,7 +461,7 @@ def main(page: ft.Page):
             ft.TextField(value=d["drop_off_date"], hint_text="YYYY-MM-DD", on_change=on_dropoff_change),
             ft.Text("DUE / READY DATE", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
             ft.TextField(value=d["due_date"], hint_text="YYYY-MM-DD", on_change=on_due_change),
-            ft.Text("PRICE ($)", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
+            ft.Text("PRICE (₱)", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
             ft.TextField(value=d["price"], hint_text="0.00", keyboard_type=ft.KeyboardType.NUMBER,
                          on_change=on_price_change),
             ft.Text("NOTES", size=11, weight=ft.FontWeight.BOLD, color=MUTED),
@@ -760,7 +760,7 @@ def main(page: ft.Page):
                                 ft.Text(date, size=11, color=MUTED),
                             ], spacing=1, expand=True),
                             ft.Container(
-                                content=ft.Text(f"${data['revenue']:.2f}", size=16, weight=ft.FontWeight.BOLD, color="white"),
+                                content=ft.Text(f"₱{data['revenue']:.2f}", size=16, weight=ft.FontWeight.BOLD, color="white"),
                                 bgcolor=CORAL, border_radius=8, padding=ft.Padding(12, 8, 12, 8),
                             ),
                         ],
@@ -827,7 +827,7 @@ def main(page: ft.Page):
             ft.Container(
                 content=ft.Column([
                     ft.Text("Total Revenue (All Time)", size=13, weight=ft.FontWeight.W_600, color=MUTED),
-                    ft.Text(f"${total_revenue:.2f}", size=32, weight=ft.FontWeight.BOLD, color=CORAL),
+                    ft.Text(f"₱{total_revenue:.2f}", size=32, weight=ft.FontWeight.BOLD, color=CORAL),
                 ], spacing=4),
                 bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=14,
             ),
