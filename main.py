@@ -479,8 +479,15 @@ def main(page: ft.Page):
             if not d["new_name"].strip():
                 show_snack("Enter a client name")
                 return
-            c = db.add_client(d["new_name"].strip(), d["new_phone"].strip())
-            client_id = c["id"]
+            try:
+                c = db.add_client(d["new_name"].strip(), d["new_phone"].strip())
+                client_id = c["id"]
+            except Exception as err:
+                show_snack(f"Error adding client: {str(err)}")
+                print(f"Add client error: {err}")
+                import traceback
+                traceback.print_exc()
+                return
         if not client_id:
             show_snack("Select or add a client")
             return
@@ -488,17 +495,23 @@ def main(page: ft.Page):
         if not items:
             show_snack("Add at least one item")
             return
-        db.add_order(client_id, d["service"], items, d["drop_off_date"], d["due_date"], d["price"], d["notes"])
-        state["new_order"] = {
-            "mode": "existing", "client_id": None, "new_name": "", "new_phone": "",
-            "service": SERVICES[0], "items": [{"type": GARMENTS[0], "qty": 1}],
-            "drop_off_date": today_str(), "due_date": "", "price": "", "notes": "",
-        }
-        refresh_data()
-        state["tab"] = 0
-        nav_bar.selected_index = 0
-        render()
-        show_snack("Order saved")
+        try:
+            db.add_order(client_id, d["service"], items, d["drop_off_date"], d["due_date"], d["price"], d["notes"])
+            state["new_order"] = {
+                "mode": "existing", "client_id": None, "new_name": "", "new_phone": "",
+                "service": SERVICES[0], "items": [{"type": GARMENTS[0], "qty": 1}],
+                "drop_off_date": today_str(), "due_date": "", "price": "", "notes": "",
+            }
+            refresh_data()
+            state["tab"] = 0
+            nav_bar.selected_index = 0
+            render()
+            show_snack("Order saved")
+        except Exception as err:
+            show_snack(f"Error saving order: {str(err)}")
+            print(f"Add order error: {err}")
+            import traceback
+            traceback.print_exc()
 
     # -------------------------------------------------------------- clients
     def open_add_client_dialog():
@@ -510,11 +523,17 @@ def main(page: ft.Page):
             if not name_field.value or not name_field.value.strip():
                 show_snack("Enter a name")
                 return
-            db.add_client(name_field.value.strip(), phone_field.value or "", address_field.value or "")
-            close_dialog()
-            refresh_data()
-            render()
-            show_snack("Client added")
+            try:
+                db.add_client(name_field.value.strip(), phone_field.value or "", address_field.value or "")
+                close_dialog()
+                refresh_data()
+                render()
+                show_snack("Client added")
+            except Exception as err:
+                show_snack(f"Error: {str(err)}")
+                print(f"Add client error: {err}")
+                import traceback
+                traceback.print_exc()
 
         dlg = ft.AlertDialog(
             title=ft.Text("Add client"),
@@ -604,16 +623,22 @@ def main(page: ft.Page):
             if not name_field.value or not name_field.value.strip():
                 show_snack("Enter an item name")
                 return
-            db.add_inventory_item(
-                name_field.value.strip(),
-                float(qty_field.value or 0),
-                unit_field.value.strip() or "pcs",
-                float(reorder_field.value or 0),
-            )
-            close_dialog()
-            refresh_data()
-            render()
-            show_snack("Item added")
+            try:
+                db.add_inventory_item(
+                    name_field.value.strip(),
+                    float(qty_field.value or 0),
+                    unit_field.value.strip() or "pcs",
+                    float(reorder_field.value or 0),
+                )
+                close_dialog()
+                refresh_data()
+                render()
+                show_snack("Item added")
+            except Exception as err:
+                show_snack(f"Error: {str(err)}")
+                print(f"Inventory save error: {err}")
+                import traceback
+                traceback.print_exc()
 
         dlg = ft.AlertDialog(
             title=ft.Text("Add inventory item"),
