@@ -115,6 +115,15 @@ def main(page: ft.Page):
     content_area = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
     stats_row = ft.Row(spacing=10)
     header_sub = ft.Text("", color="white", size=13, weight=ft.FontWeight.W_500)
+    state_dialog = {"current": None}
+
+    def open_dialog(dlg):
+        state_dialog["current"] = dlg
+        page.open(dlg)
+
+    def close_dialog():
+        if state_dialog["current"] is not None:
+            page.close(state_dialog["current"])
 
     def client_by_id(cid):
         return next((c for c in state["clients"] if c["id"] == cid), None)
@@ -139,10 +148,7 @@ def main(page: ft.Page):
         try:
             page.open(ft.SnackBar(content=ft.Text(msg), duration=1600))
         except Exception:
-            try:
-                page.show_dialog(ft.SnackBar(content=ft.Text(msg), duration=1600))
-            except Exception:
-                pass
+            pass
 
     # ----------------------------------------------------------- nav / tabs
     def on_nav_change(e):
@@ -201,7 +207,7 @@ def main(page: ft.Page):
                     bgcolor=TEAL if is_on else BG,
                     border_radius=9,
                     padding=ft.Padding(0, 9, 0, 9),
-                    alignment=ft.Alignment.CENTER,
+                    alignment=ft.alignment.center,
                     expand=True,
                     on_click=lambda e, st=s: set_status_and_close(order["id"], st),
                 )
@@ -227,13 +233,13 @@ def main(page: ft.Page):
                 spacing=8,
                 tight=True,
             ),
-            actions=[ft.TextButton("Close", on_click=lambda e: page.close_dialog())],
+            actions=[ft.TextButton("Close", on_click=lambda e: close_dialog())],
         )
-        page.show_dialog(dlg)
+        open_dialog(dlg)
 
     def set_status_and_close(order_id, status):
         db.update_order_status(order_id, status)
-        page.close_dialog()
+        close_dialog()
         refresh_data()
         render()
         show_snack(f"Order marked {status}")
@@ -255,7 +261,7 @@ def main(page: ft.Page):
             [
                 ft.Container(
                     content=ft.Text(f"{i['qty']:g}x {i['type']}", size=11, color=MUTED, weight=ft.FontWeight.W_600),
-                    bgcolor=BG, border=ft.Border.all(1, LINE), border_radius=8,
+                    bgcolor=BG, border=ft.border.all(1, LINE), border_radius=8,
                     padding=ft.Padding(8, 3, 8, 3),
                 )
                 for i in order["items"][:4]
@@ -307,7 +313,7 @@ def main(page: ft.Page):
                 ],
                 spacing=10,
             ),
-            bgcolor="white", border=ft.Border.all(1, LINE), border_radius=16,
+            bgcolor="white", border=ft.border.all(1, LINE), border_radius=16,
             padding=14,
             on_click=lambda e: open_order_detail(order),
         )
@@ -350,14 +356,14 @@ def main(page: ft.Page):
                     content=ft.Text("Existing", size=12.5, weight=ft.FontWeight.BOLD,
                                      color="white" if d["mode"] == "existing" else MUTED),
                     bgcolor=TEAL if d["mode"] == "existing" else BG, border_radius=9,
-                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.Alignment.CENTER, expand=True,
+                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.alignment.center, expand=True,
                     on_click=lambda e: set_mode("existing"),
                 ),
                 ft.Container(
                     content=ft.Text("New client", size=12.5, weight=ft.FontWeight.BOLD,
                                      color="white" if d["mode"] == "new" else MUTED),
                     bgcolor=TEAL if d["mode"] == "new" else BG, border_radius=9,
-                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.Alignment.CENTER, expand=True,
+                    padding=ft.Padding(0, 9, 0, 9), alignment=ft.alignment.center, expand=True,
                     on_click=lambda e: set_mode("new"),
                 ),
             ],
@@ -372,7 +378,7 @@ def main(page: ft.Page):
                 label="Select a client",
                 value=d["client_id"],
                 options=[ft.DropdownOption(key=c["id"], text=c["name"]) for c in state["clients"]],
-                on_select=on_client_select,
+                on_change=on_client_select,
             )
             client_controls = [client_field]
         else:
@@ -393,7 +399,7 @@ def main(page: ft.Page):
         service_field = ft.Dropdown(
             label="Service type", value=d["service"],
             options=[ft.DropdownOption(key=s, text=s) for s in SERVICES],
-            on_select=on_service_select,
+            on_change=on_service_select,
         )
 
         # ---- item rows ----
@@ -417,7 +423,7 @@ def main(page: ft.Page):
                 ft.Dropdown(
                     value=it["type"], expand=2,
                     options=[ft.DropdownOption(key=g, text=g) for g in GARMENTS],
-                    on_select=lambda e, i=idx: on_item_type_select(e, i),
+                    on_change=lambda e, i=idx: on_item_type_select(e, i),
                 ),
                 ft.TextField(value=str(it["qty"]), expand=1, keyboard_type=ft.KeyboardType.NUMBER,
                              on_change=lambda e, i=idx: on_item_qty_change(e, i)),
@@ -505,7 +511,7 @@ def main(page: ft.Page):
                 show_snack("Enter a name")
                 return
             db.add_client(name_field.value.strip(), phone_field.value or "", address_field.value or "")
-            page.close_dialog()
+            close_dialog()
             refresh_data()
             render()
             show_snack("Client added")
@@ -514,11 +520,11 @@ def main(page: ft.Page):
             title=ft.Text("Add client"),
             content=ft.Column([name_field, phone_field, address_field], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda e: page.close_dialog()),
+                ft.TextButton("Cancel", on_click=lambda e: close_dialog()),
                 ft.ElevatedButton("Save", bgcolor=TEAL, color="white", on_click=save),
             ],
         )
-        page.show_dialog(dlg)
+        open_dialog(dlg)
 
     def open_client_detail(client):
         c_orders = [o for o in state["orders"] if o["client_id"] == client["id"]]
@@ -543,9 +549,9 @@ def main(page: ft.Page):
                 ],
                 tight=True, spacing=8,
             ),
-            actions=[ft.TextButton("Close", on_click=lambda e: page.close_dialog())],
+            actions=[ft.TextButton("Close", on_click=lambda e: close_dialog())],
         )
-        page.show_dialog(dlg)
+        open_dialog(dlg)
 
     def build_clients():
         if not state["clients"]:
@@ -581,7 +587,7 @@ def main(page: ft.Page):
             body = [
                 ft.Container(
                     content=ft.Column(rows, spacing=0),
-                    bgcolor="white", border=ft.Border.all(1, LINE), border_radius=16, padding=14,
+                    bgcolor="white", border=ft.border.all(1, LINE), border_radius=16, padding=14,
                 )
             ]
         add_btn = ft.OutlinedButton("+ Add client", on_click=lambda e: open_add_client_dialog())
@@ -604,7 +610,7 @@ def main(page: ft.Page):
                 unit_field.value.strip() or "pcs",
                 float(reorder_field.value or 0),
             )
-            page.close_dialog()
+            close_dialog()
             refresh_data()
             render()
             show_snack("Item added")
@@ -613,11 +619,11 @@ def main(page: ft.Page):
             title=ft.Text("Add inventory item"),
             content=ft.Column([name_field, qty_field, unit_field, reorder_field], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda e: page.close_dialog()),
+                ft.TextButton("Cancel", on_click=lambda e: close_dialog()),
                 ft.ElevatedButton("Save", bgcolor=TEAL, color="white", on_click=save),
             ],
         )
-        page.show_dialog(dlg)
+        open_dialog(dlg)
 
     def adjust_inventory(e, item_id, delta):
         item = next(i for i in state["inventory"] if i["id"] == item_id)
@@ -674,7 +680,7 @@ def main(page: ft.Page):
             section_title("Inventory", trailing=add_btn),
             ft.Container(
                 content=ft.Column(rows, spacing=0),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=16, padding=14,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=16, padding=14,
             ),
             ft.Text("Stock updates instantly for everyone on the team.", size=11, color=MUTED,
                      text_align=ft.TextAlign.CENTER),
@@ -791,32 +797,32 @@ def main(page: ft.Page):
                     ft.Text("Total Customers (All Time)", size=13, weight=ft.FontWeight.W_600, color=MUTED),
                     ft.Text(f"{total_customers}", size=32, weight=ft.FontWeight.BOLD, color=TEAL),
                 ], spacing=4),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=12, padding=14,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=14,
             ),
             ft.Container(
                 content=ft.Column([
                     ft.Text("Total Revenue (All Time)", size=13, weight=ft.FontWeight.W_600, color=MUTED),
                     ft.Text(f"${total_revenue:.2f}", size=32, weight=ft.FontWeight.BOLD, color=CORAL),
                 ], spacing=4),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=12, padding=14,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=14,
             ),
             ft.Divider(height=1),
             ft.Text("CUSTOMERS PER DAY (Last 14 days)", size=12, weight=ft.FontWeight.BOLD, color=MUTED),
             ft.Container(
                 content=ft.Column(customers_rows or [ft.Text("No data", color=MUTED)], spacing=0),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=12, padding=12,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=12,
             ),
             ft.Divider(height=1),
             ft.Text("REVENUE PER DAY (Last 14 days)", size=12, weight=ft.FontWeight.BOLD, color=MUTED),
             ft.Container(
                 content=ft.Column(revenue_rows or [ft.Text("No data", color=MUTED)], spacing=0),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=12, padding=12,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=12,
             ),
             ft.Divider(height=1),
             ft.Text("INVENTORY STATUS", size=12, weight=ft.FontWeight.BOLD, color=MUTED),
             ft.Container(
                 content=ft.Column(inventory_rows or [ft.Text("No inventory items", color=MUTED)], spacing=4),
-                bgcolor="white", border=ft.Border.all(1, LINE), border_radius=12, padding=12,
+                bgcolor="white", border=ft.border.all(1, LINE), border_radius=12, padding=12,
             ),
         ]
 
