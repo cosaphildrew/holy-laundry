@@ -686,7 +686,8 @@ def main(page: ft.Page):
                     d["drop_off_date"],
                     d["due_date"],
                     str(total_price),
-                    f"[{d['order_type']}] {d['notes']}" if d["notes"] else f"[{d['order_type']}]",
+                    d["notes"],
+                    is_rush=(d["order_type"] == "Rush"),
                 )
                 
                 # Reset wizard
