@@ -838,7 +838,7 @@ def main(page: ft.Page):
             spacing=4,
         ),
         bgcolor=TEAL,
-        gradient=ft.LinearGradient(begin=ft.Alignment.TOP_LEFT, end=ft.Alignment.BOTTOM_RIGHT,
+        gradient=ft.LinearGradient(begin=ft.alignment.top_left, end=ft.alignment.bottom_right,
                                     colors=[TEAL, TEAL_DARK]),
         padding=ft.Padding(20, 20, 20, 22),
     )
