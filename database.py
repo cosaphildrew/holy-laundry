@@ -96,9 +96,18 @@ def init_db():
                     price REAL,
                     notes TEXT,
                     status TEXT,
+                    is_rush BOOLEAN DEFAULT FALSE,
                     created_at BIGINT
                 )
             """)
+
+            # Try to add is_rush column if it doesn't exist (migration)
+            try:
+                c.execute("ALTER TABLE orders ADD COLUMN is_rush BOOLEAN DEFAULT FALSE")
+                print("[DB] Added 'is_rush' column to orders table")
+            except Exception as e:
+                # Column probably already exists
+                print(f"[DB] is_rush column exists or migration info: {str(e)[:50]}")
 
             c.execute("""
                 CREATE TABLE IF NOT EXISTS inventory (
@@ -206,7 +215,7 @@ def get_clients():
 
 
 # ---------------------------------------------------------------- ORDERS
-def add_order(client_id, service_id, items, drop_off_date, due_date, price, notes):
+def add_order(client_id, service_id, items, drop_off_date, due_date, price, notes, is_rush=False):
     """Add a new order."""
     order_id = _gen_id()
     now = int(datetime.now().timestamp())
@@ -214,15 +223,15 @@ def add_order(client_id, service_id, items, drop_off_date, due_date, price, note
         c = conn.cursor()
         c.execute(
             """INSERT INTO orders
-               (id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+               (id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, is_rush, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (order_id, client_id, service_id, json.dumps(items), drop_off_date, due_date,
-             price, notes, "Dropped Off", now),
+             price, notes, "Dropped Off", is_rush, now),
         )
     return {
         "id": order_id, "client_id": client_id, "service_id": service_id, "items": items,
         "drop_off_date": drop_off_date, "due_date": due_date, "price": price, "notes": notes,
-        "status": "Dropped Off", "created_at": now,
+        "status": "Dropped Off", "is_rush": is_rush, "created_at": now,
     }
 
 
@@ -230,7 +239,7 @@ def get_orders():
     """Get all orders."""
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("""SELECT id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, created_at
+        c.execute("""SELECT id, client_id, service_id, items, drop_off_date, due_date, price, notes, status, is_rush, created_at
                      FROM orders ORDER BY created_at DESC""")
         rows = c.fetchall()
     orders = []
@@ -245,7 +254,8 @@ def get_orders():
             "price": float(row[6]) if row[6] else 0,
             "notes": row[7],
             "status": row[8],
-            "created_at": row[9],
+            "is_rush": row[9] if len(row) > 9 else False,
+            "created_at": row[10],
         })
     return orders
 
